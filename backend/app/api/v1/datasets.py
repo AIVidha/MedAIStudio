@@ -9,6 +9,9 @@ from app.db.models import Dataset, DatasetVersion, Subject, Study, Series, Split
 
 router = APIRouter(prefix="/datasets", tags=["datasets"])
 
+# Data lives at the project root (one level above backend/)
+_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
+
 @router.get("")
 def list_datasets(db: Session = Depends(get_db)):
     datasets = db.query(Dataset).all()
@@ -34,8 +37,8 @@ def scan_local_datasets():
     """
     found = []
     
-    # Check synthetic dataset path
-    synthetic_path = os.path.abspath("./data/synthetic")
+    # Check synthetic dataset path (project root / data/synthetic)
+    synthetic_path = os.path.join(_PROJECT_ROOT, "data", "synthetic")
     if os.path.exists(synthetic_path):
         meta_path = os.path.join(synthetic_path, "metadata.json")
         pat_dirs = [d for d in os.listdir(synthetic_path) if os.path.isdir(os.path.join(synthetic_path, d))]
@@ -48,8 +51,8 @@ def scan_local_datasets():
             "status": "ready_for_import"
         })
         
-    # Check ACDC raw dataset path
-    acdc_path = os.path.abspath("./data/raw/acdc")
+    # Check ACDC raw dataset path (project root / data/raw/acdc)
+    acdc_path = os.path.join(_PROJECT_ROOT, "data", "raw", "acdc")
     if os.path.exists(acdc_path):
         train_path = os.path.join(acdc_path, "training")
         test_path = os.path.join(acdc_path, "testing")
@@ -78,7 +81,7 @@ def import_dataset(dataset_type: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="No active project found to associate dataset.")
         
     if dataset_type == "synthetic":
-        syn_path = os.path.abspath("./data/synthetic")
+        syn_path = os.path.join(_PROJECT_ROOT, "data", "synthetic")
         if not os.path.exists(syn_path):
             raise HTTPException(status_code=404, detail="Synthetic dataset directory not found. Run make_synthetic.py first.")
             

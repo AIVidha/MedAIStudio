@@ -1,6 +1,10 @@
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "backend"))
+
+# Always run relative to backend/ so SQLite resolves to backend/medai_studio.db
+_BACKEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "backend")
+os.chdir(_BACKEND_DIR)
+sys.path.insert(0, _BACKEND_DIR)
 
 from app.db.session import SessionLocal, init_db
 from app.db.models import User, Project, ModelArchitecture, Dataset

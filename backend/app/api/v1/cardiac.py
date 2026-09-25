@@ -3,6 +3,8 @@ import numpy as np
 import nibabel as nib
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
+_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 from app.db.session import get_db
 from app.db.models import CardiacMeasurement, Subject
 
@@ -19,7 +21,7 @@ def compute_cardiac_quantification(subject_id: str, db: Session = Depends(get_db
     derived strictly from NIfTI header voxel spacing and affine.
     """
     # Look up synthetic or raw file directory for subject
-    syn_dir = os.path.abspath(f"./data/synthetic/{subject_id}")
+    syn_dir = os.path.join(_PROJECT_ROOT, "data", "synthetic", subject_id)
     if not os.path.exists(syn_dir):
         raise HTTPException(status_code=404, detail=f"Data directory for {subject_id} not found.")
 
@@ -86,7 +88,7 @@ def compute_cardiac_quantification(subject_id: str, db: Session = Depends(get_db
     return {
         "subject_id": subject_id,
         "disclaimer": "Research / AI-derived quantitative measurements — not clinical diagnosis.",
-        "voxel_spacing_mm": list(zooms[:3]),
+        "voxel_spacing_mm": [float(z) for z in zooms[:3]],
         "metrics": {
           "LV": {"EDV_mL": lv_edv_ml, "ESV_mL": lv_esv_ml, "SV_mL": lv_sv_ml, "EF_percent": lv_ef_pct},
           "RV": {"EDV_mL": rv_edv_ml, "ESV_mL": rv_esv_ml, "SV_mL": rv_sv_ml, "EF_percent": rv_ef_pct},

@@ -9,10 +9,10 @@ This document tracks all tasks, phase status, and activity history across MedAI 
 | Phase | Description | Status | Gate Status |
 |---|---|---|---|
 | **Phase 0** | Foundation, Repo Context, Configs, App Shell, Auth Stub, DB Migrations, Docker Compose | ✅ Completed | Approved |
-| **Phase 1** | Priority 1 Core (ACDC Importer, Synthetic Generator, NiiVue Viewer, Annotation, AI-Segment, Quantification, Profile) | 🔄 In Progress | - |
-| **Phase 2** | Priority 2 (4 Architectures, Experiment Tracking, Profiling, Benchmarks, GPU Notebook) | ⏳ Pending | - |
-| **Phase 3** | Priority 3 (Pareto Optimization, MCDM, TOPSIS, Weight Sensitivity) | ⏳ Pending | - |
-| **Phase 4** | Priority 4 (Exports, ONNX Deployment Service, RBAC, Audit Log, Data Deletion, Multi-Organ Configs) | ⏳ Pending | - |
+| **Phase 1** | Priority 1 Core (ACDC Importer, Synthetic Generator, NiiVue Viewer, Annotation, AI-Segment, Quantification, Profile) | ✅ Completed | Approved |
+| **Phase 2** | Priority 2 (4 Architectures, Experiment Tracking, Profiling, Benchmarks, GPU Notebook) | ✅ Completed | Approved |
+| **Phase 3** | Priority 3 (Pareto Optimization, MCDM, TOPSIS, Weight Sensitivity) | ✅ Completed | Approved |
+| **Phase 4** | Priority 4 (Exports, ONNX Deployment Service, RBAC, Audit Log, Data Deletion, Multi-Organ Configs) | 🔄 In Progress | - |
 | **Phase 5** | Polish & Deliverables (Documentation, Screenshots, Presenter Script, Clean Installation Test) | ⏳ Pending | - |
 
 ---
