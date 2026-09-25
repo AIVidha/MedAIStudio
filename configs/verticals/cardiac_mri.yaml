@@ -1,0 +1,42 @@
+id: cardiac_mri
+name: Cardiac MRI AI
+organ: Heart / Left & Right Ventricles
+modality: Short-axis Cine MRI
+task: 2D Multi-Structure Segmentation & Quantitative Functional Profiling
+
+input:
+  dimensions: [160, 160]
+  channels: 1
+  default_spacing_mm: [1.5, 1.5]
+  normalization: zscore
+
+classes:
+  - id: 0
+    name: Background
+    color: "#00000000"
+  - id: 1
+    name: Right Ventricle (RV)
+    color: "#3B82F6" # Blue
+  - id: 2
+    name: Myocardium (MYO)
+    color: "#10B981" # Green
+  - id: 3
+    name: Left Ventricle (LV)
+    color: "#EF4444" # Red
+
+metrics:
+  - mean_dice
+  - mean_iou
+  - rv_dice
+  - myo_dice
+  - lv_dice
+
+models:
+  - unet
+  - unetpp
+  - efficient_unet
+  - segresnet
+
+plugins:
+  quantification: cardiac_quantification
+  classifier: cardiac_acdc_classifier

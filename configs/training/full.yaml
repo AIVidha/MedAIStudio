@@ -1,0 +1,10 @@
+profile: full
+epochs: 100
+batch_size: 16
+learning_rate: 0.0005
+optimizer: adamw
+scheduler: cosine
+amp: true
+num_workers: 4
+image_size: [160, 160]
+validation_interval: 2
