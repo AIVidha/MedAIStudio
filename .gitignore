@@ -20,6 +20,8 @@ storage/
 *.pth
 *.onnx
 *.bin
+*.db
+*.sqlite3
 
 # Node / React
 node_modules/
