@@ -41,9 +41,7 @@ interface RunHistory {
   created_at: string | null;
 }
 
-const SUBJECTS = [
-  'patient001', 'patient002', 'patient003', 'patient004', 'patient005'
-];
+// Subjects loaded from API below
 
 const DICE_COLOR = (v: number) =>
   v >= 0.92 ? 'text-emerald-400' : v >= 0.87 ? 'text-amber-400' : 'text-red-400';
@@ -52,6 +50,7 @@ export const InferencePage: React.FC = () => {
   const [architectures, setArchitectures] = useState<Architecture[]>([]);
   const [versions, setVersions] = useState<ModelVersion[]>([]);
   const [history, setHistory] = useState<RunHistory[]>([]);
+  const [subjects, setSubjects] = useState<string[]>([]);
   const [selectedArch, setSelectedArch] = useState<string>('');
   const [selectedSubject, setSelectedSubject] = useState<string>('patient001');
   const [result, setResult] = useState<InferenceResult | null>(null);
@@ -64,6 +63,11 @@ export const InferencePage: React.FC = () => {
       if (r.data.length > 0) setSelectedArch(r.data[0].id);
     }).catch(() => {});
     axios.get('/api/v1/models/versions').then(r => setVersions(r.data)).catch(() => {});
+    axios.get('/api/v1/viewer/subjects').then(r => {
+      const ids: string[] = r.data.map((s: { subject_id: string }) => s.subject_id);
+      setSubjects(ids);
+      if (ids.length > 0) setSelectedSubject(ids[0]);
+    }).catch(() => setSubjects(['patient001', 'patient002', 'patient003']));
     fetchHistory();
   }, []);
 
@@ -141,7 +145,7 @@ export const InferencePage: React.FC = () => {
                 onChange={e => setSelectedSubject(e.target.value)}
                 className="w-full px-3 py-2 bg-background border border-border text-foreground text-xs rounded-lg"
               >
-                {SUBJECTS.map(s => (
+                {subjects.map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>

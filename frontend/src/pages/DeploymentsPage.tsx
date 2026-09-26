@@ -21,7 +21,7 @@ export const DeploymentsPage: React.FC = () => {
   const fetchDeployments = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:8000/api/v1/deployments');
+      const res = await axios.get('/api/v1/deployments');
       setDeployments(res.data);
     } catch (err) {
       console.error('Failed to load deployments', err);
@@ -33,7 +33,7 @@ export const DeploymentsPage: React.FC = () => {
   const handleExport = async (archName: string) => {
     setExporting(archName);
     try {
-      const res = await axios.post(`http://localhost:8000/api/v1/deployments/export-onnx/${archName}`);
+      const res = await axios.post(`/api/v1/deployments/export-onnx/${archName}`);
       setMessage(res.data.message || 'ONNX model exported successfully.');
       await fetchDeployments();
     } catch (err: any) {
