@@ -24,6 +24,7 @@ interface InferenceResult {
   processing_time_ms: number;
   data_source?: string;
   weights_loaded?: boolean;
+  model_source?: string;
   n_slices_processed?: number;
   segmentation_metrics: {
     LV_Dice: number;
@@ -223,12 +224,12 @@ export const InferencePage: React.FC = () => {
                   ['Model Version', result.model_version],
                   ['Slices processed', result.n_slices_processed?.toString() ?? '—'],
                   ['Data source', result.data_source ?? '—'],
-                  ['Weights', result.weights_loaded ? '✓ Trained checkpoint' : '⚠ Random (untrained)'],
+                  ['Model', result.model_source ?? (result.weights_loaded ? '✓ Trained checkpoint' : '⚠ Random (untrained)')],
                   ['Run ID', result.run_id.slice(0, 8) + '…'],
                 ].map(([k, v]) => (
                   <div key={k} className="flex justify-between border-b border-border/30 pb-1">
                     <span className="text-muted-foreground">{k}</span>
-                    <span className={`font-mono ${k === 'Weights' && !result.weights_loaded ? 'text-amber-400' : 'text-foreground'}`}>{v}</span>
+                    <span className={`font-mono ${k === 'Model' && !result.weights_loaded && !result.model_source ? 'text-amber-400' : 'text-foreground'}`}>{v}</span>
                   </div>
                 ))}
               </div>

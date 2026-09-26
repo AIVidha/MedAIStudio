@@ -87,6 +87,7 @@ def run_inference(
     elapsed_ms = result["processing_time_ms"]
     metrics = result["segmentation_metrics"]
     weights_loaded = result["weights_loaded"]
+    model_source = result.get("model_source", "Unknown")
 
     lv = metrics.get("LV_Dice") or 0.0
     rv = metrics.get("RV_Dice") or 0.0
@@ -102,15 +103,21 @@ def run_inference(
     db.add(run)
     db.commit()
 
-    if weights_loaded:
+    if "bundle" in model_source.lower():
         note = (
-            "Real MONAI U-Net inference — Dice computed vs ground-truth NIfTI mask. "
+            "Pre-trained MONAI bundle (ventricular_short_axis_3label). "
+            "Dice computed vs ground-truth NIfTI mask. "
+            "Research / AI-derived quantitative measurements — not clinical diagnosis."
+        )
+    elif weights_loaded:
+        note = (
+            "Custom-trained U-Net checkpoint. Dice computed vs ground-truth NIfTI mask. "
             "Research / AI-derived quantitative measurements — not clinical diagnosis."
         )
     else:
         note = (
-            "Random-weight U-Net (no trained checkpoint found). "
-            "Run Training to generate storage/models/cardiac_unet.pt. "
+            "Random-weight U-Net (no trained checkpoint or bundle found). "
+            "Run: python scripts/download_pretrained.py  to get a pre-trained model. "
             "Research / AI-derived quantitative measurements — not clinical diagnosis."
         )
 
@@ -123,6 +130,7 @@ def run_inference(
         "processing_time_ms": elapsed_ms,
         "data_source": data_source,
         "weights_loaded": weights_loaded,
+        "model_source": model_source,
         "n_slices_processed": result["n_slices_processed"],
         "segmentation_metrics": {
             "LV_Dice": lv,

@@ -1,7 +1,13 @@
 """
 Real slice-by-slice inference on a NIfTI cardiac MRI volume.
 Computes Dice vs ground truth when GT mask is available.
+
+Model priority:
+  1. MONAI pre-trained bundle (ventricular_short_axis_3label) — if downloaded
+  2. Custom trained UNet checkpoint (storage/models/cardiac_unet.pt) — if trained
+  3. Random-weight UNet — fallback for demo purposes
 """
+import os
 import time
 from typing import Optional
 
@@ -9,6 +15,7 @@ import numpy as np
 import torch
 
 from app.ml.cardiac_model import get_model
+from app.ml.bundle_model import get_bundle_model, preprocess_slice, remap_labels
 from app.ml.data_utils import load_volume_normalized
 
 _CLASSES = {1: "RV", 2: "MYO", 3: "LV"}
@@ -30,40 +37,124 @@ def run_inference(
     device: str = "cpu",
 ) -> dict:
     """
-    Run the MONAI U-Net on every axial slice of the given frame.
+    Run inference on every axial slice of the given frame.
+    Uses MONAI pre-trained bundle if available, otherwise custom UNet.
     Returns per-class Dice scores (vs GT) and processing time.
     """
-    model, weights_loaded = get_model(device)
+    # Try pre-trained bundle first
+    bundle_model, bundle_ok = get_bundle_model(device)
+
+    import nibabel as nib
+    from app.ml.data_utils import ACDC_DIR
+    from pathlib import Path
+
     t0 = time.perf_counter()
+    weights_loaded: bool
+    model_source: str
 
-    image_vol, gt_vol = load_volume_normalized(patient_id, frame)
-    # image_vol: (1, Z, H, W), gt_vol: (Z, H, W) or None
+    if bundle_ok and bundle_model is not None:
+        # --- Pre-trained MONAI bundle path ---
+        model_source = "MONAI pre-trained bundle (ventricular_short_axis_3label)"
+        weights_loaded = True
 
-    n_slices = image_vol.shape[1]
-    pred_slices = []
+        p = Path(ACDC_DIR) / patient_id
+        nii_path = None
+        for ext in (".nii", ".nii.gz"):
+            candidate = p / f"{patient_id}_frame{frame:02d}{ext}"
+            if candidate.exists():
+                nii_path = candidate
+                break
+        if nii_path is None:
+            # fallback: synthetic data
+            syn_dir = os.path.join(os.path.dirname(ACDC_DIR), "synthetic", patient_id)
+            for ext in (".nii", ".nii.gz"):
+                candidate = os.path.join(syn_dir, f"{patient_id}_frame{frame:02d}{ext}")
+                if os.path.exists(candidate):
+                    nii_path = candidate
+                    break
 
-    model.eval()
-    with torch.no_grad():
-        for z in range(n_slices):
-            inp = image_vol[:, z, :, :].unsqueeze(0).to(device)  # (1,1,H,W)
-            logits = model(inp)                                    # (1,4,H,W)
-            pred = logits.argmax(dim=1).squeeze(0).cpu().numpy()  # (H,W)
-            pred_slices.append(pred)
+        if nii_path is None:
+            raise FileNotFoundError(f"NIfTI not found for {patient_id} frame {frame:02d}")
 
-    pred_vol = np.stack(pred_slices, axis=0)  # (Z, H, W)
-    elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+        nii = nib.load(str(nii_path))
+        data = nii.get_fdata(dtype=np.float32)  # (X, Y, Z)
+        n_slices = data.shape[2]
+        pred_slices = []
 
-    metrics: dict[str, float] = {}
-    if gt_vol is not None:
-        gt_np = gt_vol.numpy()
-        for cls_id, cls_name in _CLASSES.items():
-            metrics[f"{cls_name}_Dice"] = round(dice_coefficient(pred_vol, gt_np, cls_id), 4)
-        dices = list(metrics.values())
-        metrics["Mean_Dice"] = round(sum(dices) / len(dices), 4)
+        bundle_model.eval()
+        with torch.no_grad():
+            for z in range(n_slices):
+                sl = data[:, :, z]                           # (X, Y)
+                inp = preprocess_slice(sl).to(device)        # (1,1,256,256)
+                logits = bundle_model(inp)                   # (1,4,256,256)
+                pred_raw = logits.argmax(dim=1).squeeze(0).cpu().numpy()  # (256,256)
+                pred_acdc = remap_labels(pred_raw)           # label remap → ACDC convention
+                pred_slices.append(pred_acdc)
+
+        # Load GT for Dice
+        gt_vol_np = None
+        for ext in (".nii", ".nii.gz"):
+            gt_path = p / f"{patient_id}_frame{frame:02d}_gt{ext}"
+            if gt_path.exists():
+                gt_data = nib.load(str(gt_path)).get_fdata().astype(np.int32)
+                gt_vol_np = gt_data  # (X, Y, Z)
+                break
+
+        pred_vol = np.stack(pred_slices, axis=0)  # (Z, 256, 256)
+
+        metrics: dict[str, float] = {}
+        if gt_vol_np is not None:
+            import torch.nn.functional as F
+            # Resize GT slices to 256×256 to match predictions
+            gt_resized = []
+            for z in range(n_slices):
+                gt_sl = torch.from_numpy(gt_vol_np[:, :, z].astype(np.float32)).unsqueeze(0).unsqueeze(0)
+                gt_r = F.interpolate(gt_sl, size=(256, 256), mode="nearest").squeeze().numpy().astype(np.int32)
+                gt_resized.append(gt_r)
+            gt_np = np.stack(gt_resized, axis=0)
+            for cls_id, cls_name in _CLASSES.items():
+                metrics[f"{cls_name}_Dice"] = round(dice_coefficient(pred_vol, gt_np, cls_id), 4)
+            dices = list(metrics.values())
+            metrics["Mean_Dice"] = round(sum(dices) / len(dices), 4)
+        else:
+            for cls_name in _CLASSES.values():
+                metrics[f"{cls_name}_Dice"] = None
+            metrics["Mean_Dice"] = None
+
     else:
-        for cls_name in _CLASSES.values():
-            metrics[f"{cls_name}_Dice"] = None
-        metrics["Mean_Dice"] = None
+        # --- Custom UNet fallback ---
+        model_source = "Custom UNet (random weights — not trained)"
+        model, weights_loaded = get_model(device)
+        if weights_loaded:
+            model_source = "Custom UNet (trained checkpoint)"
+
+        image_vol, gt_vol = load_volume_normalized(patient_id, frame)
+        n_slices = image_vol.shape[1]
+        pred_slices = []
+
+        model.eval()
+        with torch.no_grad():
+            for z in range(n_slices):
+                inp = image_vol[:, z, :, :].unsqueeze(0).to(device)
+                logits = model(inp)
+                pred = logits.argmax(dim=1).squeeze(0).cpu().numpy()
+                pred_slices.append(pred)
+
+        pred_vol = np.stack(pred_slices, axis=0)
+
+        metrics = {}
+        if gt_vol is not None:
+            gt_np = gt_vol.numpy()
+            for cls_id, cls_name in _CLASSES.items():
+                metrics[f"{cls_name}_Dice"] = round(dice_coefficient(pred_vol, gt_np, cls_id), 4)
+            dices = list(metrics.values())
+            metrics["Mean_Dice"] = round(sum(dices) / len(dices), 4)
+        else:
+            for cls_name in _CLASSES.values():
+                metrics[f"{cls_name}_Dice"] = None
+            metrics["Mean_Dice"] = None
+
+    elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
 
     return {
         "patient_id": patient_id,
@@ -71,6 +162,7 @@ def run_inference(
         "n_slices_processed": n_slices,
         "processing_time_ms": elapsed_ms,
         "weights_loaded": weights_loaded,
+        "model_source": model_source,
         "segmentation_metrics": metrics,
         "pred_vol_shape": list(pred_vol.shape),
     }

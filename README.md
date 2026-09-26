@@ -17,9 +17,10 @@ Audience: AI/healthcare research groups and institutional demonstrators explorin
 |--------|-------------|--------|
 | Dashboard | Live project stats, model cards, annotation progress | ✅ |
 | Dataset Manager | ACDC import, synthetic fallback, leakage-safe splits | ✅ |
-| Image Viewer | NiiVue WebGL2 NIfTI viewer, 4D cine, overlay | ✅ |
+| Image Viewer | Canvas MPR viewer (axial/coronal/sagittal), W/L controls, GT overlay, full-screen 1920×1080 layout | ✅ |
 | Cardiac Quantification | EDV/ESV/SV/EF/mass from affine-derived voxel volumes | ✅ |
 | Cardiac AI Profile | Per-subject research measurements + ACDC category display | ✅ |
+| AI Inference | MONAI pre-trained bundle + custom UNet, real Dice vs GT, model source display | ✅ |
 | Model Benchmarking | Leaderboard for U-Net, U-Net++, Efficient-UNet, SegResNet | ✅ |
 | TOPSIS Optimization | Weight-slider MCDM ranking + Pareto frontier chart | ✅ |
 | ONNX Deployments | Export + container endpoint registry + cURL snippets | ✅ |
@@ -27,6 +28,34 @@ Audience: AI/healthcare research groups and institutional demonstrators explorin
 | Experiment Tracking | Training run history and loss curves (stub) | ⚠️ stub |
 | Model Registry | Version browser with status tracking (stub) | ⚠️ stub |
 | Projects | Multi-project management (stub) | ⚠️ stub |
+
+---
+
+## Pre-trained AI Model
+
+MedAI Studio ships with integration for the **MONAI Model Zoo** pre-trained cardiac segmentation bundle — no training required.
+
+| Property | Detail |
+|----------|--------|
+| Bundle | `ventricular_short_axis_3label` |
+| Source | [MONAI Model Zoo](https://monai.io/model-zoo.html) (MIT License) |
+| Task | 2D short-axis cardiac MRI segmentation |
+| Classes | LV pool · LV myocardium · RV pool |
+| Input | 256 × 256 grayscale slice |
+| Typical Dice | LV ~0.97 · RV ~0.90 · MYO ~0.87 (on ACDC ED frames) |
+
+**Download the bundle (one-time, ~30 MB):**
+
+```bash
+# Run from the repo root
+python scripts/download_pretrained.py
+```
+
+The bundle is saved to `storage/bundles/` (gitignored). Once downloaded, the backend automatically uses it for inference — no configuration needed. The inference pipeline priority is:
+
+1. **MONAI pre-trained bundle** ← used automatically after download
+2. Custom-trained checkpoint (`storage/models/cardiac_unet.pt`) — if you have trained your own
+3. Random-weight U-Net fallback — for API smoke-testing only
 
 ---
 
@@ -66,23 +95,44 @@ Services started:
 Prerequisites: Python 3.11+, Node.js 18+.
 
 ```bash
-# Install dependencies
+# 1. Install dependencies
 make setup
 
-# Generate synthetic data (if ACDC is not available)
+# 2. Generate synthetic data (if ACDC is not available)
 make synthetic
 
-# Seed demo database
+# 3. Seed demo database
 make seed-demo
 
-# Start backend (http://localhost:8000)
+# 4. Download pre-trained cardiac segmentation model (~30 MB, one-time)
+python scripts/download_pretrained.py
+
+# 5. Start backend  →  http://localhost:8000
 make dev-backend
 
-# In a second terminal: start frontend (http://localhost:5173)
+# 6. In a second terminal: start frontend  →  http://localhost:5173
 make dev-frontend
 ```
 
 The local dev setup uses **SQLite** (`medai_studio.db`) — no PostgreSQL needed.
+
+**Manual setup (without `make`):**
+
+```bash
+# Backend
+cd backend
+python -m venv venv
+venv\Scripts\activate          # Windows
+# source venv/bin/activate     # macOS/Linux
+pip install -r requirements.txt
+python ../scripts/seed_demo.py
+uvicorn app.main:app --reload --port 8000
+
+# Frontend (separate terminal)
+cd frontend
+npm install
+npm run dev
+```
 
 ---
 
@@ -212,7 +262,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full Mermaid diagram 
 | Charts | Recharts (standard), `react-plotly.js` (Pareto/scatter) |
 | Backend | Python 3.11+, FastAPI, Pydantic v2, SQLAlchemy 2, Uvicorn |
 | Database | SQLite (dev) / PostgreSQL 16 (Docker) |
-| AI/ML | PyTorch 2.x, MONAI 1.3+, scikit-learn, ONNX Runtime |
+| AI/ML | PyTorch 2.8+, MONAI 1.5+, MONAI Model Zoo (pre-trained bundles), scikit-learn, ONNX Runtime |
 | Imaging I/O | NiBabel, pydicom, SimpleITK |
 | Inference | ONNX Runtime (containerised) |
 | Infrastructure | Docker Compose (5 services) |
