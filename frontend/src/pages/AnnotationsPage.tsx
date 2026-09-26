@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { PenTool, Brush, Eraser, Trash2, Save, ChevronLeft, ChevronRight, Eye, EyeOff, Info } from 'lucide-react';
+import { PenTool, Brush, Eraser, Trash2, Save, ChevronLeft, ChevronRight, Eye, EyeOff, Info, Cpu, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -44,6 +44,9 @@ export const AnnotationsPage: React.FC = () => {
   const [saveMsg, setSaveMsg]         = useState<string | null>(null);
   const [imgUrl, setImgUrl]           = useState<string | null>(null);
   const [imgLoading, setImgLoading]   = useState<boolean>(false);
+  const [aiSegmenting, setAiSegmenting] = useState<boolean>(false);
+  const [aiWeightsLoaded, setAiWeightsLoaded] = useState<boolean | null>(null);
+  const aiPredRef = useRef<number[][] | null>(null); // (H, W) label grid from AI
 
   const canvasRef     = useRef<HTMLCanvasElement>(null);
   const overlayRef    = useRef<HTMLCanvasElement>(null);
@@ -130,6 +133,29 @@ export const AnnotationsPage: React.FC = () => {
     const ctx = canvas.getContext('2d')!;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (!showOverlay) return;
+
+    // Render AI prediction grid as semi-transparent fill
+    if (aiPredRef.current) {
+      const pred = aiPredRef.current;
+      const pH = pred.length, pW = pred[0]?.length ?? 0;
+      if (pH > 0 && pW > 0) {
+        const cellH = canvas.height / pH, cellW = canvas.width / pW;
+        const AI_COLORS: Record<number, string> = {
+          1: 'rgba(34,211,238,0.30)',   // RV cyan
+          2: 'rgba(245,158,11,0.30)',   // MYO amber
+          3: 'rgba(239,68,68,0.30)',    // LV red
+        };
+        for (let r = 0; r < pH; r++) {
+          for (let c = 0; c < pW; c++) {
+            const v = pred[r][c];
+            if (v === 0) continue;
+            ctx.fillStyle = AI_COLORS[v] ?? 'rgba(255,255,255,0.15)';
+            ctx.fillRect(c * cellW, r * cellH, cellW, cellH);
+          }
+        }
+      }
+    }
+
     for (const s of strokesRef.current) {
       const label = LABELS.find(l => l.value === s.label);
       if (!label) continue;
@@ -355,6 +381,54 @@ export const AnnotationsPage: React.FC = () => {
               {showOverlay ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
               {showOverlay ? 'Overlay visible' : 'Overlay hidden'}
             </button>
+          </div>
+
+          {/* AI Segment */}
+          <div className="glass-panel rounded-xl border border-border p-4 space-y-2">
+            <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <Cpu className="w-3.5 h-3.5 text-violet-400" /> AI Segment
+            </p>
+            <p className="text-[10px] text-muted-foreground">
+              Run MONAI U-Net on this slice. Prediction overlays in transparent color.
+            </p>
+            <button
+              onClick={async () => {
+                if (!subjectId || !frame) return;
+                setAiSegmenting(true);
+                try {
+                  const frameNum = frame.replace(/[^0-9]/g, '') || '1';
+                  const r = await axios.get(
+                    `/api/v1/annotations/ai-segment/${subjectId}/${frameNum}/${axis}/${sliceIdx}`
+                  );
+                  aiPredRef.current = r.data.labels;
+                  setAiWeightsLoaded(r.data.weights_loaded);
+                  renderOverlay();
+                } catch (e: any) {
+                  console.error('AI segment failed', e);
+                } finally {
+                  setAiSegmenting(false);
+                }
+              }}
+              disabled={aiSegmenting || !subjectId}
+              className="w-full flex items-center justify-center gap-2 py-2 text-xs font-semibold bg-violet-600/20 border border-violet-500/40 text-violet-300 rounded-lg hover:bg-violet-600/30 transition-colors disabled:opacity-50">
+              {aiSegmenting
+                ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" />Segmenting…</>
+                : <><Cpu className="w-3.5 h-3.5" />AI Segment</>}
+            </button>
+            {aiWeightsLoaded === false && (
+              <p className="text-[10px] text-amber-400/80">
+                Random-weight prediction (no checkpoint). Train model first for meaningful results.
+              </p>
+            )}
+            {aiWeightsLoaded === true && (
+              <p className="text-[10px] text-emerald-400/80">Trained model weights loaded.</p>
+            )}
+            {aiPredRef.current && (
+              <button onClick={() => { aiPredRef.current = null; renderOverlay(); }}
+                className="w-full py-1 text-[10px] text-muted-foreground border border-border/40 rounded hover:bg-card/40 transition-colors">
+                Clear AI overlay
+              </button>
+            )}
           </div>
 
           {/* Label selector */}

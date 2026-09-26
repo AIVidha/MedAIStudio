@@ -22,6 +22,9 @@ interface InferenceResult {
   model_version: string;
   status: string;
   processing_time_ms: number;
+  data_source?: string;
+  weights_loaded?: boolean;
+  n_slices_processed?: number;
   segmentation_metrics: {
     LV_Dice: number;
     RV_Dice: number;
@@ -116,7 +119,7 @@ export const InferencePage: React.FC = () => {
 
       <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[11px] text-amber-300/90 flex items-start gap-2">
         <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400" />
-        <span>Research prototype — not for clinical use. Inference results are simulated from precomputed benchmark Dice ± gaussian noise. No trained model weights are loaded in this demo.</span>
+        <span>Research prototype — not for clinical use. Runs real MONAI U-Net forward pass on ACDC NIfTI data. Dice scores are computed against GT masks. If no checkpoint exists, random weights are used and noted in the result.</span>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -218,11 +221,14 @@ export const InferencePage: React.FC = () => {
                   ['Subject', result.subject_id],
                   ['Architecture', result.architecture],
                   ['Model Version', result.model_version],
+                  ['Slices processed', result.n_slices_processed?.toString() ?? '—'],
+                  ['Data source', result.data_source ?? '—'],
+                  ['Weights', result.weights_loaded ? '✓ Trained checkpoint' : '⚠ Random (untrained)'],
                   ['Run ID', result.run_id.slice(0, 8) + '…'],
                 ].map(([k, v]) => (
                   <div key={k} className="flex justify-between border-b border-border/30 pb-1">
                     <span className="text-muted-foreground">{k}</span>
-                    <span className="font-mono text-foreground">{v}</span>
+                    <span className={`font-mono ${k === 'Weights' && !result.weights_loaded ? 'text-amber-400' : 'text-foreground'}`}>{v}</span>
                   </div>
                 ))}
               </div>

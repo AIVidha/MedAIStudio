@@ -186,3 +186,36 @@ def clear_annotation(subject_id: str, frame: str, axis: str, slice_idx: int):
     if os.path.exists(fpath):
         os.remove(fpath)
     return {"cleared": True}
+
+
+@router.get("/ai-segment/{subject_id}/{frame}/{axis}/{slice_idx}")
+def ai_segment(subject_id: str, frame: str, axis: str, slice_idx: int):
+    """
+    Runs the MONAI U-Net on a single 2-D slice and returns a predicted label mask.
+    Response: { labels: [[row of int], ...], weights_loaded: bool, shape: [H, W] }
+    Labels: 0=background, 1=RV, 2=MYO, 3=LV
+    """
+    if ".." in subject_id or ".." in frame:
+        raise HTTPException(status_code=400, detail="Invalid path.")
+
+    try:
+        frame_int = int(frame)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="frame must be an integer.")
+
+    try:
+        from app.ml.infer import segment_single_slice
+        from app.ml.cardiac_model import get_model
+        _, weights_loaded = get_model()
+        pred = segment_single_slice(subject_id, frame_int, axis, slice_idx)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"AI segmentation failed: {exc}")
+
+    return {
+        "labels": pred.tolist(),
+        "weights_loaded": weights_loaded,
+        "shape": list(pred.shape),
+        "disclaimer": "Research / AI-derived segmentation — not clinical diagnosis.",
+    }

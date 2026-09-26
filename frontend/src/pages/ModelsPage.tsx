@@ -202,8 +202,7 @@ export const ModelsPage: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'zoo' && (
-      <>
+      {activeTab === 'zoo' && (<>
       {loading ? (
         <div className="text-sm text-muted-foreground py-12 text-center">Loading model registry…</div>
       ) : architectures.length === 0 ? (
@@ -325,8 +324,8 @@ export const ModelsPage: React.FC = () => {
           </Link>
         </div>
       )}
-      </>
-      )}
+      </>)}
+
     </div>
   );
 };
