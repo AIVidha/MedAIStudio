@@ -12,7 +12,9 @@ import {
   GitMerge,
   Heart,
   Rocket,
-  Settings
+  Settings,
+  Cpu,
+  FileText
 } from 'lucide-react';
 
 interface NavItem {
@@ -33,6 +35,8 @@ const navItems: NavItem[] = [
   { name: 'Optimization', path: '/optimization', icon: GitMerge },
   { name: 'Cardiac Profile', path: '/cardiac-profile', icon: Heart },
   { name: 'Deployments', path: '/deployments', icon: Rocket },
+  { name: 'Inference', path: '/inference', icon: Cpu },
+  { name: 'Reports', path: '/reports', icon: FileText },
   { name: 'Settings', path: '/settings', icon: Settings },
 ];
 

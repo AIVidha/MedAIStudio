@@ -1,10 +1,16 @@
+import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.db.session import init_db
 from app.api.v1.router import api_router
+
+# Data directory is at the project root (two levels above app/)
+# __file__ = backend/app/main.py → .. = backend/app → ../.. = project root
+_DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data"))
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -45,6 +51,10 @@ async def add_clinical_disclaimer_header(request: Request, call_next):
     return response
 
 app.include_router(api_router, prefix="/api/v1")
+
+# Serve synthetic and processed data files for the NiiVue viewer
+if os.path.exists(_DATA_DIR):
+    app.mount("/data", StaticFiles(directory=_DATA_DIR), name="data")
 
 @app.get("/")
 def root():

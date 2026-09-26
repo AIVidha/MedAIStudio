@@ -16,6 +16,8 @@ import { OptimizationPage } from './pages/OptimizationPage';
 import { CardiacProfilePage } from './pages/CardiacProfilePage';
 import { DeploymentsPage } from './pages/DeploymentsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { InferencePage } from './pages/InferencePage';
+import { ReportsPage } from './pages/ReportsPage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -53,6 +55,8 @@ export const App: React.FC = () => {
               <Route path="optimization" element={<OptimizationPage />} />
               <Route path="cardiac-profile" element={<CardiacProfilePage />} />
               <Route path="deployments" element={<DeploymentsPage />} />
+              <Route path="inference" element={<InferencePage />} />
+              <Route path="reports" element={<ReportsPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
 

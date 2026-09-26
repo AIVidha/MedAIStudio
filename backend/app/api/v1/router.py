@@ -3,7 +3,7 @@ from app.api.v1 import (
     auth, projects, datasets, studies, annotations,
     inference, models, experiments, benchmarks,
     optimization, cardiac, reports, deployments,
-    audit, settings, health
+    audit, settings, health, viewer
 )
 
 api_router = APIRouter()
@@ -24,3 +24,4 @@ api_router.include_router(reports.router)
 api_router.include_router(deployments.router)
 api_router.include_router(audit.router)
 api_router.include_router(settings.router)
+api_router.include_router(viewer.router)

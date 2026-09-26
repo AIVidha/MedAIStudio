@@ -13,6 +13,15 @@ export const ViewerPage: React.FC = () => {
   const [overlayOpacity, setOverlayOpacity] = useState<number>(0.5);
   const [selectedSubject, setSelectedSubject] = useState<string>('patient001');
 
+  // Cine playback: cycle between ED (frame 1) and ES (frame 8)
+  useEffect(() => {
+    if (!isPlaying) return;
+    const interval = setInterval(() => {
+      setFrameIndex(prev => (prev === 1 ? 8 : 1));
+    }, 600);
+    return () => clearInterval(interval);
+  }, [isPlaying]);
+
   useEffect(() => {
     if (!canvasRef.current) return;
 
@@ -25,9 +34,10 @@ export const ViewerPage: React.FC = () => {
     nv.setSliceType(2); // Axial slice view
     nvRef.current = nv;
 
-    // Load synthetic demo NIfTI image & GT mask overlay
-    const volumeUrl = `/data/synthetic/${selectedSubject}/${selectedSubject}_frame01.nii.gz`;
-    const overlayUrl = `/data/synthetic/${selectedSubject}/${selectedSubject}_frame01_gt.nii.gz`;
+    // Load synthetic demo NIfTI image & GT mask overlay via API endpoint
+    const frame = frameIndex === 8 ? 'frame08' : 'frame01';
+    const volumeUrl = `/api/v1/viewer/nifti/${selectedSubject}/${selectedSubject}_${frame}.nii.gz`;
+    const overlayUrl = `/api/v1/viewer/nifti/${selectedSubject}/${selectedSubject}_${frame}_gt.nii.gz`;
 
     nv.loadVolumes([
       { url: volumeUrl, colorMap: 'gray', opacity: 1 },
@@ -37,9 +47,9 @@ export const ViewerPage: React.FC = () => {
     });
 
     return () => {
-      // Clean up WebGL context on unmount
+      try { nv.closeDrawing?.(); } catch (_) {}
     };
-  }, [selectedSubject]);
+  }, [selectedSubject, frameIndex]);
 
   const handleOpacityChange = (val: number) => {
     setOverlayOpacity(val);
